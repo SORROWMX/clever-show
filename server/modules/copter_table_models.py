@@ -19,7 +19,7 @@ ModelStateRole = 999
 
 def get_git_version():  # TODO import from animation
     try:
-        return subprocess.check_output("git log --pretty=format:'%h' -n 1", shell=True).decode('UTF-8')
+        return subprocess.check_output("git log --pretty=format:'%h' -n 1", shell=True, stderr=subprocess.DEVNULL).decode('UTF-8')
     except subprocess.CalledProcessError:  # when no git repository info present
         return None  # todo probably add special file
 
