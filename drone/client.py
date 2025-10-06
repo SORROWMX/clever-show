@@ -516,6 +516,7 @@ def _command_move_start_to_current_position(*args, **kwargs):
                 [private_offset[0] + telem.x - xs, private_offset[1] + telem.y - ys, private_offset[2]], write=True)
             logger.info("Set start delta: {:.2f} {:.2f}".format(copter.config.animation_private_offset[0],
                                                                 copter.config.animation_private_offset[1]))
+            copter.on_config_update()
         else:
             logger.error("Wrong telemetry")
 
@@ -524,6 +525,7 @@ def _command_move_start_to_current_position(*args, **kwargs):
 def _command_reset_start(*args, **kwargs):
     copter.config.set('ANIMATION', 'private_offset', [0, 0, copter.config.animation_private_offset[2]], write=True)
     logger.info("Reset start to {:.2f} {:.2f}".format(copter.config.animation_private_offset[0], copter.config.animation_private_offset[1]))
+    copter.on_config_update()
 
 
 @messaging.message_callback("set_z_to_ground")
@@ -533,6 +535,7 @@ def _command_set_z(*args, **kwargs):
         copter.config.set('ANIMATION', 'private_offset',
             [copter.config.animation_private_offset[0], copter.config.animation_private_offset[1], telem.z], write=True)
         logger.info("Set z offset to {:.2f}".format(copter.config.animation_private_offset[2]))
+        copter.on_config_update()
     else:
         logger.error("Wrong telemetry")
 
@@ -542,6 +545,7 @@ def _command_reset_z(*args, **kwargs):
     copter.config.set('ANIMATION', 'private_offset',
         [copter.config.animation_private_offset[0], copter.config.animation_private_offset[1], 0], write=True)
     logger.info("Reset z offset to {:.2f}".format(copter.config.animation_private_offset[2]))
+    copter.on_config_update()
 
 
 @messaging.message_callback("update_repo")
