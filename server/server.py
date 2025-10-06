@@ -36,7 +36,6 @@ import modules.copter_table_models as table
 from modules.copter_table import CopterTableWidget, HeaderEditDialog
 from modules.visual_land_dialog import VisualLandDialog
 from modules.config_editor_models import ConfigDialog
-from modules.start_position_dialog import StartPositionDialog
 
 startup_cwd = os.getcwd()
 
@@ -182,7 +181,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_reset_start.triggered.connect(b_partial(self.send_to_selected, "reset_start"))
         self.ui.action_set_z_offset_to_ground.triggered.connect(b_partial(self.send_to_selected, "set_z_to_ground"))
         self.ui.action_reset_z_offset.triggered.connect(b_partial(self.send_to_selected, "reset_z_offset"))
-        self.ui.action_set_manual_start_position.triggered.connect(self.set_manual_start_position)
 
         self.ui.action_update_client_repo.triggered.connect(b_partial(self.send_to_selected, "update_repo"))
 
@@ -618,10 +616,6 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     def visual_land(self):
         VisualLandDialog(self.model).start()
-
-    @pyqtSlot()
-    def set_manual_start_position(self):
-        StartPositionDialog(self.model).exec()
 
     @pyqtSlot()
     def configure_columns(self):
