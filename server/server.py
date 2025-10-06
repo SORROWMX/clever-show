@@ -8,9 +8,10 @@ import asyncio
 import platform
 import itertools
 import subprocess
+from pathlib import Path, PurePosixPath
 
 from functools import partial, wraps
-from quamash import QEventLoop
+from asyncqt import QEventLoop
 
 # Import server routines
 from modules.server_core import Server, Client, now
@@ -35,6 +36,7 @@ import modules.copter_table_models as table
 from modules.copter_table import CopterTableWidget, HeaderEditDialog
 from modules.visual_land_dialog import VisualLandDialog
 from modules.config_editor_models import ConfigDialog
+from modules.start_position_dialog import StartPositionDialog
 
 startup_cwd = os.getcwd()
 
@@ -180,6 +182,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.action_reset_start.triggered.connect(b_partial(self.send_to_selected, "reset_start"))
         self.ui.action_set_z_offset_to_ground.triggered.connect(b_partial(self.send_to_selected, "set_z_to_ground"))
         self.ui.action_reset_z_offset.triggered.connect(b_partial(self.send_to_selected, "reset_z_offset"))
+        self.ui.action_set_manual_start_position.triggered.connect(self.set_manual_start_position)
 
         self.ui.action_update_client_repo.triggered.connect(b_partial(self.send_to_selected, "update_repo"))
 
@@ -406,12 +409,12 @@ class MainWindow(QtWidgets.QMainWindow):
             for copter in to_send:
                 if clover_dir:
                     if copter.client.clover_dir != 'error':
-                        path_to_send = os.path.realpath(os.path.join(copter.client.clover_dir, client_path))
+                        path_to_send = PurePosixPath(copter.client.clover_dir) / client_path
                     else:
                         logging.error("Can't send files to clover ROS package on {}".format(copter.copter_id))
                 else:
-                    path_to_send = client_path
-                copter.client.send_file(file, os.path.join(path_to_send, filename))
+                    path_to_send = PurePosixPath(client_path)
+                copter.client.send_file(file, str(path_to_send / filename))
                 if callback is not None:
                     callback(copter)
 
@@ -600,8 +603,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.player.stop()
         self.ui.action_play_music.setText("Play music")
 
-    @asyncio.coroutine
-    def play_music_at_time(self, t):
+    async def play_music_at_time(self, t):
         if self.player.mediaStatus() == QtMultimedia.QMediaPlayer.InvalidMedia:
             logging.error("Can't play media")
             return
@@ -609,13 +611,17 @@ class MainWindow(QtWidgets.QMainWindow):
             logging.error("No media file")
             return
         self.player.stop()
-        yield from asyncio.sleep(t - time.time())
+        await asyncio.sleep(t - time.time())
         logging.info("Playing music")
         self.player.play()
 
     @pyqtSlot()
     def visual_land(self):
         VisualLandDialog(self.model).start()
+
+    @pyqtSlot()
+    def set_manual_start_position(self):
+        StartPositionDialog(self.model).exec()
 
     @pyqtSlot()
     def configure_columns(self):
