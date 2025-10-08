@@ -316,9 +316,13 @@ def view_battery(value):
 @ModelFormatter.view_formatter("selfcheck")
 def view_selfcheck(value):
     if isinstance(value, list):
-        if len(value) == 1 and len(value[0]) <= 8:
-            return value[0]
-        return "ERROR"
+        # If there is a single short message – show it
+        if len(value) == 1:
+            msg = str(value[0])
+            return msg if len(msg) <= 64 else (msg[:61] + "...")
+        # Multiple errors – show compact status with count
+        return f"ERROR ({len(value)})"
+    # For string values – return as is (OK or a single error string)
     return value
 
 
