@@ -549,9 +549,14 @@ class ConnectionManager(object):
                 self._recv_buffer += data
                 logger.debug("Received {} bytes from {}".format(len(data), self.addr))
             else:
-                logger.warning("Connection to {} lost!".format(self.addr))
-
-                raise RuntimeError("Peer closed.")
+                logger.info("Connection to {} closed by peer".format(self.addr))
+                # Treat clean peer close as a normal event: mark for closure
+                with self._close_lock:
+                    self._should_close = True
+                # Ensure the event loop processes the close path promptly
+                self._set_selector_events_mask('w')
+                NotifierSock().notify()
+                return
 
     def process_received(self, message):
         message_type = message.jsonheader["message-type"]
