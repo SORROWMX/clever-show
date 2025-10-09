@@ -448,6 +448,16 @@ class ConnectionManager(object):
         self.socket = client_socket
         self.addr = client_addr
 
+        # Ensure reasonable socket options on accepted/connected sockets
+        try:
+            # Enable TCP keepalive and set platform-specific tuning
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+            set_keepalive(self.socket)
+            # Nagle off for low-latency messaging
+            self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        except Exception as _sock_opt_err:
+            logger.debug("Could not set socket options on {}: {}".format(self.addr, _sock_opt_err))
+
         self._clear()
 
         self._set_selector_events_mask('r')
@@ -544,6 +554,14 @@ class ConnectionManager(object):
         except io.BlockingIOError:
             # Resource temporarily unavailable (errno EWOULDBLOCK)
             pass
+        except (ConnectionResetError, ConnectionAbortedError) as conn_err:
+            logger.warning("Connection to {} reset/aborted by peer: {}".format(self.addr, conn_err))
+            # Treat as a close and schedule cleanup
+            with self._close_lock:
+                self._should_close = True
+            self._set_selector_events_mask('w')
+            NotifierSock().notify()
+            return
         else:
             if data:
                 self._recv_buffer += data
@@ -675,6 +693,16 @@ class ConnectionManager(object):
         except io.BlockingIOError:
             # Resource temporarily unavailable (errno EWOULDBLOCK)
             pass
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError) as send_err:
+            logger.warning(
+                "Send to {} failed due connection error: {}".format(self.addr, send_err)
+            )
+            # Schedule close; let event loop perform actual cleanup
+            with self._close_lock:
+                self._should_close = True
+            self._set_selector_events_mask('w')
+            NotifierSock().notify()
+            return
         except Exception as error:
             logger.warning(
                 "Attempt to send message {} to {} failed due error: {}".format(self._send_buffer, self.addr, error))
