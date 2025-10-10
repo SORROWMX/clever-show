@@ -484,6 +484,22 @@ class ConnectionManager(object):
     def _close(self):
         logger.info("Closing connection to {}".format(self.addr))
 
+        # Propagate disconnect state and callbacks for subclasses (e.g., Client) without tight coupling
+        try:
+            if hasattr(self, 'connected'):
+                try:
+                    self.connected = False
+                except Exception:
+                    pass
+            cb = getattr(self, 'on_disconnect', None)
+            if callable(cb):
+                try:
+                    cb(self)
+                except Exception as _cb_err:
+                    logger.debug("on_disconnect callback failed for {}: {}".format(self.addr, _cb_err))
+        except Exception as _attr_err:
+            logger.debug("Failed to propagate disconnect state for {}: {}".format(self.addr, _attr_err))
+
         try:
             logger.info("Unregistering selector of {}".format(self.addr))
             self.selector.unregister(self.socket)
@@ -556,11 +572,8 @@ class ConnectionManager(object):
             pass
         except (ConnectionResetError, ConnectionAbortedError) as conn_err:
             logger.warning("Connection to {} reset/aborted by peer: {}".format(self.addr, conn_err))
-            # Treat as a close and schedule cleanup
-            with self._close_lock:
-                self._should_close = True
-            self._set_selector_events_mask('w')
-            NotifierSock().notify()
+            # Treat as a close using public API to trigger subclass hooks and callbacks
+            self.close()
             return
         else:
             if data:
@@ -568,12 +581,8 @@ class ConnectionManager(object):
                 logger.debug("Received {} bytes from {}".format(len(data), self.addr))
             else:
                 logger.info("Connection to {} closed by peer".format(self.addr))
-                # Treat clean peer close as a normal event: mark for closure
-                with self._close_lock:
-                    self._should_close = True
-                # Ensure the event loop processes the close path promptly
-                self._set_selector_events_mask('w')
-                NotifierSock().notify()
+                # Treat clean peer close via public API to trigger subclass hooks and callbacks
+                self.close()
                 return
 
     def process_received(self, message):
@@ -697,11 +706,8 @@ class ConnectionManager(object):
             logger.warning(
                 "Send to {} failed due connection error: {}".format(self.addr, send_err)
             )
-            # Schedule close; let event loop perform actual cleanup
-            with self._close_lock:
-                self._should_close = True
-            self._set_selector_events_mask('w')
-            NotifierSock().notify()
+            # Schedule close via public API to trigger subclass hooks and callbacks
+            self.close()
             return
         except Exception as error:
             logger.warning(
